@@ -1,41 +1,32 @@
-def psuedorandom(lst):
-    if not lst:
-        return None
-    
-    avg_last_data = (lst[-1][1] + lst[-2][1] + lst[-3][1] + lst[-4][1] + lst[-5][1] + lst[-6][1]) / 6
+# Data lists
+
+x_data_raw = [1.23, 4.56, -7.89, 2.34, 5.67, -5.73, 2.51, 9.832]
+y_data_raw = [-3.45, -6.78, 9.01, -2.34, 7.89, -1.23, 4.56, -6.91]
+z_data_raw = [2.34, -5.67, 8.90, -1.23, 6.78, -3.45, 7.89, -2.56]
+x_rot_data_raw = [0.12, -0.34, 0.56, -1.78, 0.90, -2.11, 3.22, -3.33]
+y_rot_data_raw = [-0.45, 2.67, -0.89, 0.12, -5.34, 3.56, -0.78, 0.90]
+z_rot_data_raw = [1.23, -2.45, 3.67, -4.89, 0.12, -0.34, 0.56, -0.78]
+
+# Remove values between -1 and 1
+
+x_data = [x for x in x_data_raw if abs(x) >= 1]
+y_data = [y for y in y_data_raw if abs(y) >= 1]
+z_data = [z for z in z_data_raw if abs(z) >= 1]
+x_rot_data = [xr for xr in x_rot_data_raw if abs(xr) >= 1]
+y_rot_data = [yr for yr in y_rot_data_raw if abs(yr) >= 1]
+z_rot_data = [zr for zr in z_rot_data_raw if abs(zr) >= 1]
+
+
+def psuedorandom():
+
+    avg_last_data = (x_data[-1] + y_data[-1] + z_data[-1] + x_rot_data[-1] + y_rot_data[-1] + z_rot_data[-1]) / 6
 
     frac = abs(avg_last_data) % 1
-    index = int(frac * len(lst))
-    return lst[index]
+    index = int(frac * 10)
+    return [index % 2, index]
 
+result = psuedorandom()
 
-# Data lists
-x_data = [1.23, 4.56, -7.89, 2.34, 5.67, -5.73, 2.51, 9.832]
-y_data = [-3.45, -6.78, 9.01, -2.34, 7.89, -1.23, 4.56, -6.91]
-z_data = [2.34, -5.67, 8.90, -1.23, 6.78, -3.45, 7.89, -2.56]
-x_rot_data = [0.12, -0.34, 0.56, -0.78, 0.90, -0.11, 0.22, -0.33]
-y_rot_data = [-0.45, 0.67, -0.89, 0.12, -0.34, 0.56, -0.78, 0.90]
-z_rot_data = [0.23, -0.45, 0.67, -0.89, 0.12, -0.34, 0.56, -0.78]
-
-
-
-# Interleave the data (x, y, z, x_rot, y_rot, z_rot repeating)
-data = []
-for x, y, z, xr, yr, zr in zip(x_data, y_data, z_data, x_rot_data, y_rot_data, z_rot_data):
-    data.extend([
-        ("x_data", x),
-        ("y_data", y),
-        ("z_data", z),
-        ("x_rot_data", xr),
-        ("y_rot_data", yr),
-        ("z_rot_data", zr),
-    ])
-
-# Example usage
-result = psuedorandom(data)
-#print(result)
-
-#print(data)
 
 # Make sure the dominant motion gives its dimension
 y_neg_data = [y for y in y_data if y < 0]
@@ -44,7 +35,7 @@ z_pos_data = [z for z in z_data if z > 0]
 z_neg_data = [z for z in z_data if z < 0]
 
 
-
+#FIX: DIVIDE BY ZERO ERROR IF NO DATA POINTS
 def determine_motion():
     x_avg = sum(abs(x) for x in x_data) / len(x_data)
     y_neg_avg = sum(abs(y) for y in y_neg_data) / len(y_neg_data) if y_neg_data else 0
@@ -88,4 +79,7 @@ print(dimension())
 
 
 dimension()
+
+print("Pseudorandom Index:", result)
+
 
