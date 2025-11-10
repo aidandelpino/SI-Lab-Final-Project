@@ -33,6 +33,9 @@ x_rot_data = [xr for xr in x_rot_data_raw if abs(xr) >= 1]
 y_rot_data = [yr for yr in y_rot_data_raw if abs(yr) >= 1]
 z_rot_data = [zr for zr in z_rot_data_raw if abs(zr) >= 1]
 
+for lst in [x_data, y_data, z_data, x_rot_data, y_rot_data, z_rot_data]:
+    if not lst:
+        lst.append(0)
 
 def psuedorandom():
 
