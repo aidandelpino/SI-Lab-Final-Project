@@ -6,6 +6,7 @@ imu = qwiic_icm20948.QwiicIcm20948()
 if imu.connected == False:
     print("IMU not connected. Check wiring.")
 else:
+
     imu.begin()
     while True:
         if imu.dataReady():
