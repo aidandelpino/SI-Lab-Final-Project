@@ -1,0 +1,272 @@
+# GPIO setup
+import RPi.GPIO as GPIO
+import qwiic_icm20948
+import time
+import pygame
+
+GPIO.setmode(GPIO.BCM)
+
+
+a1 = 23
+a2 = 22
+b1 = 17
+b2 = 27
+
+pins = [a1, a2, b1, b2]
+
+for pin in pins:
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, 0)
+GPIO.setup(24, GPIO.IN)
+imu = qwiic_icm20948.QwiicIcm20948()
+
+
+imu.begin()
+
+
+try:
+    while True:
+        x_data_raw, y_data_raw, z_data_raw = [], [], []
+
+        x_rot_data_raw, y_rot_data_raw, z_rot_data_raw = [], [], []
+
+        count = 0
+
+        try:
+            while True:
+                if GPIO.input(24) == 1:
+                    if imu.dataReady():
+                        count += 1
+                        if count == 1:
+                            print('recording...')
+                        print(count)
+                        imu.getAgmt()  # updates .ax, .ay, .az, .gx, .gy, .gz
+
+                        # acceleration (g)
+                        x_data_raw.append(imu.axRaw)
+                        y_data_raw.append(imu.ayRaw)
+                        z_data_raw.append(imu.azRaw)
+
+                        # gyroscope (deg/s)
+                        x_rot_data_raw.append(imu.gxRaw)
+                        y_rot_data_raw.append(imu.gyRaw)
+                        z_rot_data_raw.append(imu.gzRaw)
+
+                        #print(f"Accel: ({imu.ax:.2f}, {imu.ay:.2f}, {imu.az:.2f})  "
+                         #     f"Gyro: ({imu.gx:.2f}, {imu.gy:.2f}, {imu.gz:.2f})")
+                        if GPIO.input(24) == 0:
+                            break
+                        
+
+                        time.sleep(0.01)  # adjust for desired sampling rate
+                else:
+                    time.sleep(0.01)
+                    if count != 0:
+                        break
+        except KeyboardInterrupt:
+            print("\nRecording stopped.")
+
+
+        '''
+
+        # Data lists
+
+        x_data_raw = [1.23, 4.56, -7.89, 2.34, 5.67, -5.73, 2.51, 9.832]
+        y_data_raw = [-3.45, -6.78, 9.01, -2.34, 7.89, -1.23, 4.56, -6.91]
+        z_data_raw = [2.34, -5.67, 8.90, -1.23, 6.78, -3.45, 7.89, -2.56, 1000]
+        x_rot_data_raw = [0.12, -0.34, 0.56, -1.78, 0.90, -2.11, 3.22, -3.33]
+        y_rot_data_raw = [-0.45, 2.67, -0.89, 0.12, -5.34, 3.56, -0.78, 0.90]
+        z_rot_data_raw = [1.23, -2.45, 3.67, -4.89, 0.12, -0.34, 0.56, -0.78]
+        '''
+
+        #convert to m/s^2
+
+        x_data = x_data_raw #* 9.80665/16384
+        y_data = y_data_raw #* 9.80665/16384
+        z_data = z_data_raw #* 9.80665/16384
+
+        #conver to degrees/s
+
+        x_rot_data = x_rot_data_raw #/ 131
+        y_rot_data = y_rot_data_raw #/ 131
+        z_rot_data = z_rot_data_raw #/ 131
+
+
+        # Remove values between -100 and 100 and over +/- 1000
+        '''
+        x_data = [x for x in x_data_raw if abs(x) >= 1]
+        y_data = [y for y in y_data_raw if abs(y) >= 1]
+        z_data = [z for z in z_data_raw if abs(z) >= 1]
+        x_rot_data = [xr for xr in x_rot_data_raw if abs(xr) >= 1]
+        y_rot_data = [yr for yr in y_rot_data_raw if abs(yr) >= 1]
+        z_rot_data = [zr for zr in z_rot_data_raw if abs(zr) >= 1]
+
+
+        for lst in [x_data, y_data, z_data, x_rot_data, y_rot_data, z_rot_data]:
+            if not lst:
+                lst.append(0)
+        '''
+        def psuedorandom():
+
+            avg_last_data = (x_data[-1] + y_data[-1] + z_data[-1] + x_rot_data[-1] + y_rot_data[-1] + z_rot_data[-1]) / 6
+
+            frac = abs(avg_last_data) % 1
+            dir = int(frac * 10)
+            direction = dir % 2
+            dir_frac = abs(frac * 10) % 1
+            rots = int(dir_frac * 10)
+            rotations = rots + 2
+            rot_frac = abs(dir_frac * 10) % 1
+            rt = int(rot_frac * 10)
+            runtime = rt + 3
+            if runtime > 7:
+                runtime = runtime - 5
+            return [direction, rotations, runtime]
+
+        result = psuedorandom()
+
+
+        # Make sure the dominant motion gives its dimension
+        y_neg_data = [y for y in y_data if y < 0]
+        y_pos_data = [y for y in y_data if y > 0]
+        z_pos_data = [z for z in z_data if z > 0]
+        z_neg_data = [z for z in z_data if z < 0]
+
+
+        #FIX: DIVIDE BY ZERO ERROR IF NO DATA POINTS
+        def determine_motion():
+            x_avg = sum(abs(x) for x in x_data) / len(x_data)
+            y_neg_avg = sum(abs(y) for y in y_neg_data) / len(y_neg_data) if y_neg_data else 0
+            y_pos_avg = sum(abs(y) for y in y_pos_data) / len(y_pos_data) if y_pos_data else 0
+            z_neg_avg = sum(abs(z) for z in z_neg_data) / len(z_neg_data) if z_neg_data else 0
+            z_pos_avg = sum(abs(z) for z in z_pos_data) / len(z_pos_data) if z_pos_data else 0
+            xr_avg = sum(abs(xr) for xr in x_rot_data) / len(x_rot_data)
+            yr_avg = sum(abs(yr) for yr in y_rot_data) / len(y_rot_data)
+            zr_avg = sum(abs(zr) for zr in z_rot_data) / len(z_rot_data)
+
+            averages = [x_avg, y_neg_avg, y_pos_avg, z_neg_avg, z_pos_avg, xr_avg, yr_avg, zr_avg]
+
+            max_avg = max(averages)
+            print("Averages:", averages)
+            return averages.index(max_avg)
+
+        dominant_motion = determine_motion()
+        #print(dominant_motion)
+
+
+        # Determine the dimension based on the result
+
+        def dimension():
+            if dominant_motion == 0:
+                return 'environmental'
+            elif dominant_motion == 1:
+                return "emotional"
+            elif dominant_motion == 2:
+                return "physical"
+            elif dominant_motion == 3:
+                return "financial"
+            elif dominant_motion == 4:
+                return 'spiritual'
+            elif dominant_motion == 5:
+                return 'intellectual'
+            elif dominant_motion == 6:
+                return 'social'
+            elif dominant_motion == 7:
+                return 'occupational'
+
+
+        dimension()
+
+
+        #print("Pseudorandom Index:", result)
+        print(result)
+        print(dimension())
+
+
+        FSCW = [
+            [1,0,0,1],
+            [1,0,1,0],
+            [0,1,1,0],
+            [0,1,0,1]
+        ]
+
+        FSACW = [
+            [0,1,0,1],
+            [0,1,1,0],
+            [1,0,1,0],
+            [1,0,0,1]
+        ]
+
+        def spin(direction, rotations, dimension, runtime):
+                
+            if dimension == "environmental":
+                    arrow = 26
+                    audio = "Environmental.mp3"
+            elif dimension == "emotional":
+                    arrow = 70
+                    audio = "Emotional.mp3"
+            elif dimension == "physical":
+                    arrow = 114
+                    audio = "Physical.mp3"
+            elif dimension == "financial":
+                    arrow = 158
+                    audio = "Financial.mp3"
+            elif dimension == "spiritual":
+                    arrow = 202
+                    audio = "Spiritual.mp3"
+            elif dimension == "intellectual":
+                    arrow = 246
+                    audio = "Intellectual.mp3"
+            elif dimension == "social":
+                    arrow = 290
+                    audio = "Social.mp3"
+            elif dimension == "occupational":
+                    arrow = 334
+                    audio = "Occupational.mp3"
+                    
+            if direction == 0:  # Clockwise
+                matrix = FSCW 
+                reverse = FSACW
+                arrow_point = arrow/360
+            else:  # Counterclockwise
+                matrix = FSACW 
+                reverse = FSCW
+                arrow_point = (360-arrow)/360
+
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("si_music.mp3")
+            pygame.mixer.music.play()
+
+
+
+            for i in range(int((rotations + arrow_point)*50*4)):
+                turn = matrix[i % 4]
+                for pin, val in zip(pins, turn):
+                    GPIO.output(pin, val)
+                time.sleep(runtime / 500)
+
+            pygame.mixer.music.stop()
+
+            pygame.mixer.music.load(audio)
+
+            pygame.mixer.music.play()
+
+            time.sleep(7)
+
+            for i in range(int(50*4*arrow_point)):
+                turn = reverse[i % 4]
+                for pin, val in zip(pins, turn):
+                    GPIO.output(pin, val)
+                time.sleep(runtime / 500)
+
+        spin(result[0], result[1], dimension(), result[2])
+
+except KeyboardInterrupt:
+    GPIO.cleanup()
+
+
+
+
+
+
