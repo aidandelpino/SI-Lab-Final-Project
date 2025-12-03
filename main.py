@@ -18,7 +18,7 @@ for pin in pins:
     GPIO.setup(pin, GPIO.OUT)
     GPIO.output(pin, 0)
 
-GPIO.setup(24, GPIO.IN)  # input to start/stop recording
+GPIO.setup(24, GPIO.IN)  #input to start/stop recording
 
 #IMU
 imu = qwiic_icm20948.QwiicIcm20948()
